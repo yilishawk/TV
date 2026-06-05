@@ -1,74 +1,80 @@
-name: Build Chaquopy TV (Leanback)
+name: Build FongMi TV
 
 on:
   workflow_dispatch:
     inputs:
       flavor:
-        description: 'Build Flavor'
+        description: '打包版本'
         required: true
-        default: 'Leanback'
+        default: 'all'
         type: choice
         options:
-          - Leanback
-          - Mobile
-      abi:
-        description: 'Target ABI'
-        required: true
-        default: 'armeabi-v7a'
-        type: choice
-        options:
-          - armeabi-v7a
-          - arm64-v8a
           - all
+          - leanback
+          - mobile
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code (with fallback)
+      - name: 检出代码
         uses: actions/checkout@v4
         with:
-          ref: release/chaquo          # 指定分支
-          fetch-depth: 0               # 完整历史，减少 fetch 问题
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
 
-      - name: Set up JDK 17
+      - name: 设置 JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
           java-version: '17'
+          distribution: 'temurin'
 
-      - name: Grant execute permission
+      - name: 设置 Python 3.8（Chaquopy 构建需要）
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+
+      - name: 设置 Gradle Wrapper
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: wrapper
+
+      - name: 赋予 gradlew 执行权限
         run: chmod +x gradlew
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+      - name: 打包 leanback arm64
+        if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'leanback' }}
+        run: ./gradlew assembleLeanbackArm64_v8aRelease --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
 
-      - name: Build APK (Fix armeabi-v7a Python issue)
+      - name: 打包 leanback armeabi
+        if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'leanback' }}
+        run: ./gradlew assembleLeanbackArmeabi_v7aRelease --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
+
+      - name: 打包 mobile arm64
+        if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'mobile' }}
+        run: ./gradlew assembleMobileArm64_v8aRelease --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
+
+      - name: 打包 mobile armeabi
+        if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'mobile' }}
+        run: ./gradlew assembleMobileArmeabi_v7aRelease --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
+
+      - name: 收集 APK
         run: |
-          echo "Building ${{ github.event.inputs.flavor }} for ${{ github.event.inputs.abi }}"
-          
-          ./gradlew clean
-          
-          if [ "${{ github.event.inputs.abi }}" = "armeabi-v7a" ] || [ "${{ github.event.inputs.abi }}" = "all" ]; then
-            echo "🚀 Building armeabi-v7a with minify disabled (critical for Chaquopy)"
-            ./gradlew :app:assemble${{ github.event.inputs.flavor }}Armeabi_v7aRelease \
-              -PminifyEnabled=false \
-              -PshrinkResources=false \
-              --stacktrace
-          else
-            ./gradlew :app:assemble${{ github.event.inputs.flavor }}Release --stacktrace
-          fi
+          mkdir -p apk_output
+          find app/build/outputs/apk -name "*.apk" -exec cp {} apk_output/ \;
+          ls -lh apk_output/
 
-      - name: Upload APK
+      - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
-          name: FongMi-TV-${{ github.event.inputs.flavor }}-${{ github.event.inputs.abi }}
-          path: app/build/outputs/apk/*/*/*.apk
-          retention-days: 30
+          name: apk-${{ github.run_number }}
+          path: apk_output/*.apk
+          retention-days: 7
