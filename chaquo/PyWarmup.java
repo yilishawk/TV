@@ -11,11 +11,9 @@ public class PyWarmup {
         if (warmed) return;
         try {
             Python py = Python.getInstance();
-            py.getModule("requests");
-            py.getModule("lxml");
-            py.getModule("pyquery");
-            py.getModule("bs4");
-            py.getModule("Crypto");
+            py.getModule("app");
+            py.getModule("runner");
+            py.getModule("trigger");
         } catch (PyException e) {
             e.printStackTrace();
         } catch (Throwable e) {
