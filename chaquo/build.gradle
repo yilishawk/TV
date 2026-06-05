@@ -21,7 +21,7 @@ android {
                 install "ujson"
                 install "pyquery"
                 install "requests"
-                install "jsonpath"
+                install "jsonpath-ng"
                 install "cachetools"
                 install 'pycryptodome'
                 install 'beautifulsoup4'
