@@ -1,86 +1,92 @@
-name: Build Chaquopy TV (Leanback)
+name: Build FongMi TV
 
 on:
   workflow_dispatch:
     inputs:
       flavor:
-        description: 'Build Flavor (Leanback=电视版)'
+        description: '打包版本'
         required: true
-        default: 'Leanback'
+        default: 'all'
         type: choice
         options:
-          - Leanback
-          - Mobile
-      abi:
-        description: 'Target ABI'
-        required: true
-        default: 'armeabi-v7a'
-        type: choice
-        options:
-          - armeabi-v7a
-          - arm64-v8a
           - all
+          - leanback
+          - mobile
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout from Official Repo
+      - name: 检出代码
         uses: actions/checkout@v4
         with:
-          repository: FongMi/TV
-          ref: release/chaquo
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: Set up JDK 17
+      - name: 设置 JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
           java-version: '17'
+          distribution: 'temurin'
 
-      - name: Clean Gradle Cache (Fix checksum error)
+      - name: 设置 Python 3.8（Chaquopy 构建需要）
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+
+      - name: 锁定 Gradle 版本并移除 SHA 校验
         run: |
-          rm -rf ~/.gradle/wrapper/dists/gradle-*
-          rm -rf ~/.gradle/caches/*
-          echo "✅ Gradle cache cleaned"
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.11.1-bin.zip|' gradle/wrapper/gradle-wrapper.properties
+          sed -i '/distributionSha256Sum/d' gradle/wrapper/gradle-wrapper.properties
+          cat gradle/wrapper/gradle-wrapper.properties
 
-      - name: Grant permission
+      - name: 生成 local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "storeFile=dummy" >> local.properties
+          echo "keyAlias=dummy" >> local.properties
+          echo "storePassword=dummy" >> local.properties
+
+      - name: 临时改用 debug 签名
+        run: |
+          sed -i 's/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/' app/build.gradle
+
+      - name: 赋予 gradlew 执行权限
         run: chmod +x gradlew
 
-      - name: Cache Gradle (after clean)
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+      - name: 打包 leanback arm64
+        if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'leanback' }}
+        run: ./gradlew assembleLeanbackArm64_v8aRelease --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
 
-      - name: Build APK - Fix armeabi-v7a Python Rules
+      - name: 打包 leanback armeabi
+        if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'leanback' }}
+        run: ./gradlew assembleLeanbackArmeabi_v7aRelease --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
+
+      - name: 打包 mobile arm64
+        if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'mobile' }}
+        run: ./gradlew assembleMobileArm64_v8aRelease --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
+
+      - name: 打包 mobile armeabi
+        if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'mobile' }}
+        run: ./gradlew assembleMobileArmeabi_v7aRelease --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
+
+      - name: 收集 APK
         run: |
-          echo "🔨 Building ${{ inputs.flavor }} for ${{ inputs.abi }}"
+          mkdir -p apk_output
+          find app/build/outputs/apk -name "*.apk" -exec cp {} apk_output/ \;
+          ls -lh apk_output/
 
-          ./gradlew clean --no-daemon
-
-          if [[ "${{ inputs.abi }}" == "armeabi-v7a" || "${{ inputs.abi }}" == "all" ]]; then
-            echo "🚀 Building armeabi-v7a (minify disabled - critical for Chaquopy PY rules)"
-            ./gradlew :app:assemble${{ inputs.flavor }}Armeabi_v7aRelease \
-              -PminifyEnabled=false \
-              -PshrinkResources=false \
-              --no-daemon \
-              --stacktrace
-          else
-            ./gradlew :app:assemble${{ inputs.flavor }}Release \
-              --no-daemon \
-              --stacktrace
-          fi
-
-      - name: Upload APK
+      - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
-          name: FongMi-TV-${{ inputs.flavor }}-${{ inputs.abi }}-Release
-          path: app/build/outputs/apk/*/*/*.apk
-          retention-days: 30
-
-      - name: Build Summary
-        run: echo "✅ Build completed! Check Artifacts for APK."
+          name: apk-${{ github.run_number }}
+          path: apk_output/*.apk
+          retention-days: 7
