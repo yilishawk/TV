@@ -51,30 +51,18 @@ jobs:
           zipStoreBase=GRADLE_USER_HOME
           zipStorePath=wrapper/dists
           PROPS
-          cat gradle/wrapper/gradle-wrapper.properties
 
       - name: 删除 daemon-jvm 约束
         run: rm -f gradle/gradle-daemon-jvm.properties
 
-      - name: 还原 keystore 文件
+      - name: 还原 keystore 并生成 local.properties
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
-
-      - name: 生成 local.properties
-        run: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-          echo "storeFile=$(pwd)/keystore.jks" >> local.properties
+          echo "storeFile=${{ github.workspace }}/keystore.jks" >> local.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> local.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> local.properties
           echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> local.properties
-
-      - name: 移除 release 签名配置中的 localProps 读取（用环境变量替代）
-        run: |
-          perl -i -0pe 's/def localProps.*?localProps\.load.*?\)//s' app/build.gradle
-          sed -i "s|file(localProps\['storeFile'\])|file(System.getenv('STORE_FILE') ?: 'keystore.jks')|" app/build.gradle
-          sed -i "s|localProps\['keyAlias'\]|System.getenv('KEY_ALIAS')|" app/build.gradle
-          sed -i "s|localProps\['keyPassword'\]|System.getenv('KEY_PASSWORD')|" app/build.gradle
-          sed -i "s|localProps\['storePassword'\]|System.getenv('STORE_PASSWORD')|" app/build.gradle
 
       - name: 赋予 gradlew 执行权限
         run: chmod +x gradlew
@@ -84,40 +72,24 @@ jobs:
         run: ./gradlew assembleLeanbackArm64_v8aRelease --no-daemon
         env:
           GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
-          STORE_FILE: ${{ github.workspace }}/keystore.jks
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
 
       - name: 打包 leanback armeabi
         if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'leanback' }}
         run: ./gradlew assembleLeanbackArmeabi_v7aRelease --no-daemon
         env:
           GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
-          STORE_FILE: ${{ github.workspace }}/keystore.jks
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
 
       - name: 打包 mobile arm64
         if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'mobile' }}
         run: ./gradlew assembleMobileArm64_v8aRelease --no-daemon
         env:
           GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
-          STORE_FILE: ${{ github.workspace }}/keystore.jks
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
 
       - name: 打包 mobile armeabi
         if: ${{ github.event.inputs.flavor == 'all' || github.event.inputs.flavor == 'mobile' }}
         run: ./gradlew assembleMobileArmeabi_v7aRelease --no-daemon
         env:
           GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
-          STORE_FILE: ${{ github.workspace }}/keystore.jks
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
 
       - name: 收集 APK
         run: |
