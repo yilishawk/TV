@@ -91,8 +91,8 @@ private void logCheck(String title, String html, boolean showSource) {
                     // ✅ 情况一：先尝试跟随 302 跳转
                     String realSite = "";
                     try {
-                        Map<String, List<String>> locationHeaders = OkHttp.getLocationHeader(indexUrl, indexHeaders);
-                        String realLocation = OkHttp.getLocation(locationHeaders);
+                        Map<String, List<String>> locationHeaders = KaiGeNet.getLocationHeader(indexUrl, indexHeaders);
+                        String realLocation = KaiGeNet.getLocation(locationHeaders);
                         if (!TextUtils.isEmpty(realLocation) && realLocation.startsWith("http")) {
                             java.net.URL realUrl = new java.net.URL(realLocation);
                             realSite = realUrl.getProtocol() + "://" + realUrl.getHost();
@@ -158,10 +158,10 @@ private void logCheck(String title, String html, boolean showSource) {
             // ✅ 仅当规则明确开启 cdndefend 时才触发预热和CDN盾检测
             if (rule.optBoolean("cdndefend", false)) {
                 try {
-                    Map<String, List<String>> redirectHeaders = OkHttp.getLocationHeader(
+                    Map<String, List<String>> redirectHeaders = KaiGeNet.getLocationHeader(
                         this.siteUrl, getHeaders(null));
                     // ✅ 安全检测：如果跳转目标不是同域名则拒绝
-                    String location = OkHttp.getLocation(redirectHeaders);
+                    String location = KaiGeNet.getLocation(redirectHeaders);
                     if (!TextUtils.isEmpty(location)) {
                         String locationHost = "";
                         try { locationHost = new java.net.URL(location).getHost(); } catch (Exception ignored) {}
