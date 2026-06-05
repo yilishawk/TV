@@ -27,18 +27,26 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'jetbrains'
+          distribution: 'temurin'
 
       - name: 设置 Python 3.8（Chaquopy 构建需要）
         uses: actions/setup-python@v5
         with:
           python-version: '3.8'
 
-      - name: 锁定 Gradle 版本并移除 SHA 校验
+      - name: 覆写 gradle-wrapper.properties
         run: |
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.11.1-bin.zip|' gradle/wrapper/gradle-wrapper.properties
-          sed -i '/distributionSha256Sum/d' gradle/wrapper/gradle-wrapper.properties
+          cat > gradle/wrapper/gradle-wrapper.properties << 'PROPS'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          PROPS
           cat gradle/wrapper/gradle-wrapper.properties
+
+      - name: 删除 daemon-jvm 约束
+        run: rm -f gradle/gradle-daemon-jvm.properties
 
       - name: 生成 local.properties
         run: |
