@@ -1,7 +1,7 @@
 name: Build Chaquopy TV (Leanback)
 
 on:
-  workflow_dispatch:  # 手动触发
+  workflow_dispatch:
     inputs:
       flavor:
         description: 'Build Flavor'
@@ -26,10 +26,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout code (with fallback)
         uses: actions/checkout@v4
         with:
-          ref: release/chaquo
+          ref: release/chaquo          # 指定分支
+          fetch-depth: 0               # 完整历史，减少 fetch 问题
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -37,7 +39,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Grant execute permission for gradlew
+      - name: Grant execute permission
         run: chmod +x gradlew
 
       - name: Cache Gradle
@@ -48,40 +50,25 @@ jobs:
             ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
 
-      - name: Build with specific ABI (Fix armeabi-v7a Python issue)
+      - name: Build APK (Fix armeabi-v7a Python issue)
         run: |
-          if [ "${{ github.event.inputs.abi }}" = "all" ]; then
-            ABI_FILTER=""
-          else
-            ABI_FILTER="-PabiFilter=${{ github.event.inputs.abi }}"
-          fi
+          echo "Building ${{ github.event.inputs.flavor }} for ${{ github.event.inputs.abi }}"
           
           ./gradlew clean
           
-          # 关键修复：强制为 armeabi-v7a 单独构建，禁用 minify
           if [ "${{ github.event.inputs.abi }}" = "armeabi-v7a" ] || [ "${{ github.event.inputs.abi }}" = "all" ]; then
-            echo "Building for armeabi-v7a with Python fixes..."
+            echo "🚀 Building armeabi-v7a with minify disabled (critical for Chaquopy)"
             ./gradlew :app:assemble${{ github.event.inputs.flavor }}Armeabi_v7aRelease \
               -PminifyEnabled=false \
               -PshrinkResources=false \
-              $ABI_FILTER \
               --stacktrace
           else
-            ./gradlew :app:assemble${{ github.event.inputs.flavor }}Release \
-              $ABI_FILTER \
-              --stacktrace
+            ./gradlew :app:assemble${{ github.event.inputs.flavor }}Release --stacktrace
           fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FongMi-TV-${{ github.event.inputs.flavor }}-${{ github.event.inputs.abi }}-Release
+          name: FongMi-TV-${{ github.event.inputs.flavor }}-${{ github.event.inputs.abi }}
           path: app/build/outputs/apk/*/*/*.apk
           retention-days: 30
-
-      - name: Summary
-        run: |
-          echo "✅ Build completed!"
-          echo "📱 Flavor: ${{ github.event.inputs.flavor }}"
-          echo "🔧 ABI: ${{ github.event.inputs.abi }}"
-          echo "💡 armeabi-v7a 专用优化已启用（关闭 minify + 独立构建）"
