@@ -1,2 +1,87 @@
-ko_fi: fongmi
-custom: [https://paypal.me/fongmitw]
+name: Build Chaquopy TV (Leanback)
+
+on:
+  workflow_dispatch:  # 手动触发
+    inputs:
+      flavor:
+        description: 'Build Flavor'
+        required: true
+        default: 'Leanback'
+        type: choice
+        options:
+          - Leanback
+          - Mobile
+      abi:
+        description: 'Target ABI'
+        required: true
+        default: 'armeabi-v7a'
+        type: choice
+        options:
+          - armeabi-v7a
+          - arm64-v8a
+          - all
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: release/chaquo
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+
+      - name: Build with specific ABI (Fix armeabi-v7a Python issue)
+        run: |
+          if [ "${{ github.event.inputs.abi }}" = "all" ]; then
+            ABI_FILTER=""
+          else
+            ABI_FILTER="-PabiFilter=${{ github.event.inputs.abi }}"
+          fi
+          
+          ./gradlew clean
+          
+          # 关键修复：强制为 armeabi-v7a 单独构建，禁用 minify
+          if [ "${{ github.event.inputs.abi }}" = "armeabi-v7a" ] || [ "${{ github.event.inputs.abi }}" = "all" ]; then
+            echo "Building for armeabi-v7a with Python fixes..."
+            ./gradlew :app:assemble${{ github.event.inputs.flavor }}Armeabi_v7aRelease \
+              -PminifyEnabled=false \
+              -PshrinkResources=false \
+              $ABI_FILTER \
+              --stacktrace
+          else
+            ./gradlew :app:assemble${{ github.event.inputs.flavor }}Release \
+              $ABI_FILTER \
+              --stacktrace
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FongMi-TV-${{ github.event.inputs.flavor }}-${{ github.event.inputs.abi }}-Release
+          path: app/build/outputs/apk/*/*/*.apk
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          echo "✅ Build completed!"
+          echo "📱 Flavor: ${{ github.event.inputs.flavor }}"
+          echo "🔧 ABI: ${{ github.event.inputs.abi }}"
+          echo "💡 armeabi-v7a 专用优化已启用（关闭 minify + 独立构建）"
