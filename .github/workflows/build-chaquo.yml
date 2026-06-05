@@ -55,9 +55,10 @@ jobs:
           echo "keyAlias=dummy" >> local.properties
           echo "storePassword=dummy" >> local.properties
 
-      - name: 临时改用 debug 签名
+      - name: 移除 release 签名配置
         run: |
-          sed -i 's/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/' app/build.gradle
+          perl -i -0pe 's/signingConfigs\s*\{.*?\}\s*\}//s' app/build.gradle
+          sed -i '/signingConfig/d' app/build.gradle
 
       - name: 赋予 gradlew 执行权限
         run: chmod +x gradlew
