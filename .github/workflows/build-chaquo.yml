@@ -34,10 +34,23 @@ jobs:
         with:
           python-version: '3.8'
 
-      - name: 设置 Gradle Wrapper
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: wrapper
+      - name: 锁定 Gradle Wrapper 版本
+        run: |
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.11.1-bin.zip|' gradle/wrapper/gradle-wrapper.properties
+          cat gradle/wrapper/gradle-wrapper.properties
+
+      - name: 生成 local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          # 占位签名信息（debug 不签名，release 走 unsigned）
+          echo "storeFile=dummy" >> local.properties
+          echo "keyAlias=dummy" >> local.properties
+          echo "storePassword=dummy" >> local.properties
+
+      - name: 临时禁用 release 签名配置（改用 debug 签名）
+        run: |
+          # 把 signingConfigs.release 整块替换成 debug 签名，避免 local.properties 缺 storeFile
+          sed -i '/signingConfigs/,/^    }/s/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/' app/build.gradle
 
       - name: 赋予 gradlew 执行权限
         run: chmod +x gradlew
