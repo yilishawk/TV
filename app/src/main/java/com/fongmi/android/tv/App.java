@@ -17,14 +17,16 @@ import com.fongmi.hook.Hook;
 import com.github.catvod.Init;
 import com.google.gson.Gson;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class App extends Application implements Application.ActivityLifecycleCallbacks {
 
     private static volatile App instance;
-
+    private static final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler handler;
     private final Gson gson;
     private final long time;
-
     private Activity activity;
     private Hook hook;
 
@@ -83,6 +85,7 @@ public class App extends Application implements Application.ActivityLifecycleCal
         super.onCreate();
         Notify.createChannel();
         registerActivityLifecycleCallbacks(this);
+        executor.execute(() -> com.fongmi.chaquo.PyWarmup.warmup());
     }
 
     @Override
