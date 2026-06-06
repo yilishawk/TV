@@ -117,10 +117,18 @@ public class JarLoader {
         String spKey = jaKey + key;
         return spiders.computeIfAbsent(spKey, k -> {
             try {
+                String className = "com.github.catvod.spider." + api.split("csp_")[1];
                 parseJar(jaKey, jar);
                 DexClassLoader loader = loaders.get(jaKey);
-                if (loader == null) return new SpiderNull();
-                Spider spider = (Spider) loader.loadClass("com.github.catvod.spider." + api.split("csp_")[1]).newInstance();
+                Class<?> clz;
+                if (loader != null) {
+                    // 优先从外部 jar 加载
+                    clz = loader.loadClass(className);
+                } else {
+                    // ✅ jar 为空或加载失败，从 APK 内置类中查找
+                    clz = App.get().getClassLoader().loadClass(className);
+                }
+                Spider spider = (Spider) clz.newInstance();
                 spider.siteKey = key;
                 spider.init(App.get(), ext);
                 return spider;
