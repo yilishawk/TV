@@ -2,6 +2,7 @@ package com.fongmi.android.tv.api.loader;
 
 import android.text.TextUtils;
 
+import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.api.config.LiveConfig;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Live;
@@ -16,6 +17,7 @@ import org.json.JSONObject;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import dalvik.system.DexClassLoader;
 
@@ -24,6 +26,8 @@ public class BaseLoader {
     private final JarLoader jarLoader;
     private final PyLoader pyLoader;
     private final JsLoader jsLoader;
+    // ✅ 内置 Spider 缓存
+    private final ConcurrentHashMap<String, Spider> builtinSpiders = new ConcurrentHashMap<>();
 
     private BaseLoader() {
         jarLoader = new JarLoader();
@@ -52,13 +56,33 @@ public class BaseLoader {
             jarLoader.clear();
             pyLoader.clear();
             jsLoader.clear();
+            builtinSpiders.values().forEach(Spider::destroy);
+            builtinSpiders.clear();
         });
     }
 
     public Spider getSpider(String key, String api, String ext, String jar) {
         if (isPy(api)) return pyLoader.getSpider(key, api, ext);
         else if (isJs(api)) return jsLoader.getSpider(key, api, ext, jar);
-        else if (isCsp(api)) return jarLoader.getSpider(key, api, ext, jar);
+        else if (isCsp(api)) {
+            // ✅ jar 为空时优先从 APK 内置类加载，不走 JarLoader
+            if (TextUtils.isEmpty(jar)) {
+                return builtinSpiders.computeIfAbsent(key, k -> {
+                    try {
+                        String className = "com.github.catvod.spider." + api.split("csp_")[1];
+                        Class<?> clz = App.get().getClassLoader().loadClass(className);
+                        Spider spider = (Spider) clz.newInstance();
+                        spider.siteKey = key;
+                        spider.init(App.get(), ext);
+                        return spider;
+                    } catch (Throwable e) {
+                        e.printStackTrace();
+                        return new SpiderNull();
+                    }
+                });
+            }
+            return jarLoader.getSpider(key, api, ext, jar);
+        }
         else return new SpiderNull();
     }
 
