@@ -2,11 +2,21 @@ package com.github.catvod.spider;
 
 import android.text.TextUtils;
 import android.util.Base64;
+
+import com.github.catvod.utils.AESEncryption;
+import com.github.catvod.utils.Util;
+
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+
+import java.io.StringReader;
+import java.net.URLDecoder;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.net.URLDecoder;
-import com.github.catvod.utils.Util;
-import com.github.catvod.utils.AESEncryption;
+
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathFactory;
 
 public class KaiGeEngine {
 
@@ -32,6 +42,32 @@ public class KaiGeEngine {
         }
 
         String finalValue = "";
+
+        // ✅ xpath 模式：用 Android 内置 javax.xml.xpath 处理
+        if (coreLogic.startsWith("xpath:")) {
+            try {
+                String xpathQuery = coreLogic.substring(6).trim();
+                XPath xpath = XPathFactory.newInstance().newXPath();
+                InputSource source = new InputSource(new StringReader(html));
+                NodeList nodes = (NodeList) xpath.evaluate(xpathQuery, source, XPathConstants.NODESET);
+                if (nodes != null && nodes.getLength() > 0) {
+                    StringBuilder sb = new StringBuilder();
+                    if (result.index >= 0 && result.index < nodes.getLength()) {
+                        sb.append(nodes.item(result.index).getTextContent().trim());
+                    } else {
+                        for (int i = 0; i < nodes.getLength(); i++) {
+                            if (sb.length() > 0) sb.append("$$$");
+                            sb.append(nodes.item(i).getTextContent().trim());
+                        }
+                    }
+                    result.value = sb.toString();
+                }
+            } catch (Exception e) {
+                result.value = "";
+            }
+            return result;
+        }
+
         if (coreLogic.contains(">")) {
             String[] steps = coreLogic.split("\\s*>\\s*");
             finalValue = html;
@@ -43,29 +79,6 @@ public class KaiGeEngine {
         }
 
         if (!isEmpty(result.includeKey) && !finalValue.contains(result.includeKey)) finalValue = "";
-
-        if (coreLogic.startsWith("xpath:")) {
-            try {
-                String xpathQuery = coreLogic.substring(6).trim();
-                org.seimicrawler.xpath.JXDocument jxDoc = org.seimicrawler.xpath.JXDocument.create(html);
-                java.util.List<org.seimicrawler.xpath.JXNode> nodes = jxDoc.selN(xpathQuery);
-                if (nodes != null && !nodes.isEmpty()) {
-                    StringBuilder sb = new StringBuilder();
-                    if (result.index < nodes.size() && result.index >= 0) {
-                        sb.append(nodes.get(result.index).asString().trim());
-                    } else {
-                        for (org.seimicrawler.xpath.JXNode node : nodes) {
-                            if (sb.length() > 0) sb.append("$$$");
-                            sb.append(node.asString().trim());
-                        }
-                    }
-                    result.value = sb.toString();
-                }
-            } catch (Exception e) {
-                result.value = "";
-            }
-        }
-
         if (!isEmpty(result.excludeKey) && finalValue.contains(result.excludeKey)) finalValue = "";
         if (result.shouldFull && !isEmpty(finalValue)) finalValue = autoFullUrl(finalValue, host);
         result.value = finalValue;
@@ -149,11 +162,9 @@ public class KaiGeEngine {
             return sortQueryString(content);
         }
         if (step.equalsIgnoreCase("[md5]")) {
-            // ✅ 修复：使用 Util.md5() 小写方法名
             return Util.md5(content);
         }
         if (step.equalsIgnoreCase("[sha1]")) {
-            // ✅ 修复：Util 无 sha1Hex，内联实现
             try {
                 java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-1");
                 byte[] bytes = md.digest(content.getBytes("UTF-8"));
@@ -182,7 +193,6 @@ public class KaiGeEngine {
         return executeSingleRule(content, step);
     }
 
-    // ✅ 修复：Util 无 sortQueryString，内联实现
     private static String sortQueryString(String url) {
         try {
             int idx = url.indexOf("?");
