@@ -7,10 +7,12 @@ public class OkResult {
 
     private final String body;
     private final Map<String, List<String>> resp;
+    private final int code;
 
-    public OkResult(String body, Map<String, List<String>> resp) {
+    public OkResult(String body, Map<String, List<String>> resp, int code) {
         this.body = body;
         this.resp = resp;
+        this.code = code;
     }
 
     public String getBody() {
@@ -19,5 +21,9 @@ public class OkResult {
 
     public Map<String, List<String>> getResp() {
         return resp;
+    }
+
+    public int getCode() {
+        return code;
     }
 }
