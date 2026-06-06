@@ -27,7 +27,6 @@ android {
                 install 'beautifulsoup4'
                 install 'brotli'
                 install 'charset-normalizer'
-                install 'js2py'
             }
         }
     }
