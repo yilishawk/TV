@@ -93,7 +93,9 @@ public class Proxy extends Spider {
                         }
                     } catch (Exception ignored) {}
                 }
-            } catch (Exception e) { isServerRunning = false; }
+            } catch (Exception e) { 
+                isServerRunning = false; 
+            }
         }).start();
     }
 
@@ -102,28 +104,28 @@ public class Proxy extends Spider {
      * 不要加 @Override 注解，否则编译会失败。
      */
     public Object[] proxy(Map<String, String> params) {
-    log("📨 [弹幕入口] 收到 proxy 调用: " + params);
+        log("📨 [弹幕入口] 收到 proxy 调用: " + params);
 
-    String doParam = params.get("do");
-    if (doParam == null || !doParam.equals("danmu")) {
-        log("❌ [弹幕入口] do 参数错误: " + doParam);
-        return errorResponse(400, "Missing or invalid 'do' parameter");
+        String doParam = params.get("do");
+        if (doParam == null || !doParam.equals("danmu")) {
+            log("❌ [弹幕入口] do 参数错误: " + doParam);
+            return errorResponse(400, "Missing or invalid 'do' parameter");
+        }
+
+        String title = params.get("title");
+        String episode = params.get("episode");
+        if (title == null || title.isEmpty() || episode == null || episode.isEmpty()) {
+            log("❌ [弹幕入口] 缺少 title 或 episode，原始params: " + params);
+            return errorResponse(400, "Missing title or episode");
+        }
+
+        // ✅ decode 后写回 params
+        try { title = URLDecoder.decode(title, "UTF-8"); params.put("title", title); } catch (Exception e) { log("⚠️ [弹幕入口] title decode失败: " + e.getMessage()); }
+        try { episode = URLDecoder.decode(episode, "UTF-8"); params.put("episode", episode); } catch (Exception e) { log("⚠️ [弹幕入口] episode decode失败: " + e.getMessage()); }
+
+        log("✅ [弹幕入口] decode后 title=" + title + " | episode=" + episode);
+        return DanmuHelper.getDanmuResponse(params);
     }
-
-    String title = params.get("title");
-    String episode = params.get("episode");
-    if (title == null || title.isEmpty() || episode == null || episode.isEmpty()) {
-        log("❌ [弹幕入口] 缺少 title 或 episode，原始params: " + params);
-        return errorResponse(400, "Missing title or episode");
-    }
-
-    // ✅ decode 后写回 params
-    try { title = URLDecoder.decode(title, "UTF-8"); params.put("title", title); } catch (Exception e) { log("⚠️ [弹幕入口] title decode失败: " + e.getMessage()); }
-    try { episode = URLDecoder.decode(episode, "UTF-8"); params.put("episode", episode); } catch (Exception e) { log("⚠️ [弹幕入口] episode decode失败: " + e.getMessage()); }
-
-    log("✅ [弹幕入口] decode后 title=" + title + " | episode=" + episode);
-    return DanmuHelper.getDanmuResponse(params);
-}
 
     private Object[] errorResponse(int code, String message) {
         Map<String, String> headers = new HashMap<>();
