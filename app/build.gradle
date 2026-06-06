@@ -72,8 +72,11 @@ android {
 
     packagingOptions {
         resources {
-            exclude 'META-INF/beans.xml'
-            exclude 'META-INF/versions/9/OSGI-INF/MANIFEST.MF'
+        exclude 'META-INF/beans.xml'
+        exclude 'META-INF/versions/9/OSGI-INF/MANIFEST.MF'
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/NOTICE'
         }
     }
 
