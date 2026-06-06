@@ -1,23 +1,39 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>日志查看</title>
+    <title>日志查看 - 9978</title>
     <style>
-        body { font-family: monospace; background: #1e1e1e; color: #0f0; padding: 10px; margin:0; }
-        pre { white-space: pre-wrap; word-break: break-all; }
-        .log { margin: 5px 0; }
+        body { font-family: monospace; background: #1e1e1e; color: #0f0; padding: 15px; margin:0; line-height:1.4; }
+        .header { position: sticky; top:0; background:#1e1e1e; padding:10px; border-bottom:2px solid #0f0; margin-bottom:10px; }
+        button { padding:8px 16px; margin-right:8px; background:#0f0; color:#000; border:none; border-radius:4px; cursor:pointer; }
+        pre { white-space: pre-wrap; word-break: break-all; background:#111; padding:15px; border-radius:6px; }
     </style>
 </head>
 <body>
-    <h2>🚀 实时日志 (Proxy + Catvod)</h2>
-    <button onclick="location.reload()">刷新日志</button>
-    <pre id="logs"></pre>
+    <div class="header">
+        <b>📟 凱哥日志查看器 (9978)</b>
+        <button onclick="window.location.reload()">🔄 刷新</button>
+        <button onclick="fetch('http://127.0.0.1:10086/?clean').then(()=>location.reload())">🧹 清空日志</button>
+    </div>
+    <pre id="logs">正在加载日志...</pre>
 
     <script>
-        // 可以后续通过 JS 调用 /action 或其他接口拉取日志，这里先静态展示
-        document.getElementById('logs').textContent = '日志服务器已启动\n请在 Logcat 或应用内触发操作后刷新此页面\n\n当前时间: ' + new Date().toLocaleString();
+        let last = '';
+        setInterval(() => {
+            fetch('http://127.0.0.1:10086/get_logs')
+                .then(r => r.text())
+                .then(data => {
+                    if (data !== last) {
+                        document.getElementById('logs').innerHTML = data;
+                        last = data;
+                        window.scrollTo(0, document.body.scrollHeight);
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('logs').innerHTML += '\n\n❌ 无法连接 10086 日志服务器，请检查是否启动';
+                });
+        }, 800);
     </script>
 </body>
 </html>
