@@ -45,5 +45,4 @@ dependencies {
     }
     // KaiGe 引擎依赖
     api 'org.jsoup:jsoup:1.18.3'
-    api 'cn.wanghaomiao:SeimiCrawler:2.1.4'
 }
