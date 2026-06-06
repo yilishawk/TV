@@ -88,10 +88,10 @@ public class KaiGeNet {
             try (Response response = OkHttp.client().newCall(request).execute()) {
                 Map<String, List<String>> respHeaders = response.headers().toMultimap();
                 String respBody = response.body() != null ? response.body().string() : "";
-                return new OkResult(respBody, respHeaders);
+                return new OkResult(respBody, respHeaders, response.code());
             }
         } catch (Exception e) {
-            return new OkResult("", null);
+            return new OkResult("", null, 0);
         }
     }
 
