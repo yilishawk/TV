@@ -68,7 +68,7 @@ private void logCheck(String title, String html, boolean showSource) {
                 initHeaders.put("Referer", ""); // 清空 Referer，防止 OkHttp 報錯
 
                 // 使用最原始的 OkHttp 請求，避免被 smartRequest 裡的自動 Header 帶偏
-                OkResult res = OkHttp.get(extend, null, initHeaders);
+                OkResult res = KaiGeNet.smartRequest("", "get", extend, null, initHeaders);
                 json = res.getBody();
             } else {
                 json = extend;
