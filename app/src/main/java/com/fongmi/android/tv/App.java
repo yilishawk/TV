@@ -1,5 +1,6 @@
 package com.fongmi.android.tv;
 
+import com.fongmi.android.tv.server.Server;
 import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
@@ -84,6 +85,7 @@ public class App extends Application implements Application.ActivityLifecycleCal
     public void onCreate() {
         super.onCreate();
         Notify.createChannel();
+        Server.get().start();
         registerActivityLifecycleCallbacks(this);
         executor.execute(() -> com.fongmi.chaquo.PyWarmup.warmup());
     }
